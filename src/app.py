@@ -3,6 +3,9 @@ from models.reddit_sentiment import RedditSentimentAnalyzer
 from models.stock_data       import StockDataFetcher
 from visualization.sentiment_plotter import SentimentPlotter
 from dotenv import load_dotenv; load_dotenv()
+from pathlib import Path
+from flask import Flask, render_template, request, jsonify, url_for
+
 
 app = Flask(__name__)
 reddit  = RedditSentimentAnalyzer()
@@ -19,12 +22,19 @@ def analyze():
 
     reddit_res = reddit.analyze(symbol)
     stock_res  = stocks.get_stock_data(symbol)
-    plot_url   = None
 
+    plot_url = None
     if reddit_res['success']:
-        plot_path = f"static/{symbol}_trend.png"
+        # ----- NEW, robust path code -----
+        project_root = Path(__file__).resolve().parent.parent   # directory that contains 'src'
+        static_dir   = project_root / 'static'
+        static_dir.mkdir(exist_ok=True)
+
+        plot_path = static_dir / f'{symbol}_trend.png'
         plotter.trend(reddit.daily_series(), stocks.history(symbol), plot_path)
-        plot_url = f"/{plot_path}"
+
+        # Flask‑safe URL for the browser
+        plot_url = url_for('static', filename=f'{symbol}_trend.png')
 
     return jsonify({
         'stock_symbol': symbol,
