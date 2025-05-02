@@ -1,13 +1,19 @@
-from flask import Flask, render_template, request, jsonify
+import os
+from flask import Flask, render_template, request, jsonify, url_for
 from models.reddit_sentiment import RedditSentimentAnalyzer
 from models.stock_data       import StockDataFetcher
 from visualization.sentiment_plotter import SentimentPlotter
 from dotenv import load_dotenv; load_dotenv()
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, url_for
 
+# FIX: Correct Flask constructor
+app = Flask(
+    __name__,
+    static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'),
+    static_url_path='/static'
+)
 
-app = Flask(__name__)
+# Initialize components
 reddit  = RedditSentimentAnalyzer()
 stocks  = StockDataFetcher()
 plotter = SentimentPlotter()
@@ -25,15 +31,14 @@ def analyze():
 
     plot_url = None
     if reddit_res['success']:
-        # ----- NEW, robust path code -----
-        project_root = Path(__file__).resolve().parent.parent   # directory that contains 'src'
+        # Save chart to root-level static folder
+        project_root = Path(__file__).resolve().parent.parent
         static_dir   = project_root / 'static'
         static_dir.mkdir(exist_ok=True)
-
         plot_path = static_dir / f'{symbol}_trend.png'
         plotter.trend(reddit.daily_series(), stocks.history(symbol), plot_path)
 
-        # Flask‑safe URL for the browser
+        # Provide URL path to frontend
         plot_url = url_for('static', filename=f'{symbol}_trend.png')
 
     return jsonify({
