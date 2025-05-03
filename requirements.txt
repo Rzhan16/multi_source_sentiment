@@ -3,3 +3,5 @@ newsapi-python==0.2.7
 textblob==0.17.1
 tweepy
 newsapi-python
+gunicorn==20.1.0
+whitenoise==6.5.0
