@@ -1,21 +1,20 @@
 import os
 from flask import Flask, render_template, request, jsonify, url_for
-from models.reddit_sentiment import RedditSentimentAnalyzer
-from models.stock_data       import StockDataFetcher
-from visualization.sentiment_plotter import SentimentPlotter
-from dotenv import load_dotenv; load_dotenv()
+from dotenv import load_dotenv
 from pathlib import Path
 
-# FIX: Correct Flask constructor
-app = Flask(
-    __name__,
+from models.unified_sentiment import get_unified_sentiment
+from models.stock_data import StockDataFetcher
+from visualization.sentiment_plotter import SentimentPlotter
+
+load_dotenv()
+
+app = Flask(__name__,
     static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'),
     static_url_path='/static'
 )
 
-# Initialize components
-reddit  = RedditSentimentAnalyzer()
-stocks  = StockDataFetcher()
+stocks = StockDataFetcher()
 plotter = SentimentPlotter()
 
 @app.route('/')
@@ -25,27 +24,22 @@ def home():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     symbol = request.form.get('stock_symbol', '').upper()
-
-    reddit_res = reddit.analyze(symbol)
-    stock_res  = stocks.get_stock_data(symbol)
+    sentiment_res = get_unified_sentiment(symbol)
+    stock_res = stocks.get_stock_data(symbol)
 
     plot_url = None
-    if reddit_res['success']:
-        # Save chart to root-level static folder
-        project_root = Path(__file__).resolve().parent.parent
-        static_dir   = project_root / 'static'
+    if sentiment_res.get('success'):
+        static_dir = Path(__file__).resolve().parent.parent / 'static'
         static_dir.mkdir(exist_ok=True)
         plot_path = static_dir / f'{symbol}_trend.png'
-        plotter.trend(reddit.daily_series(), stocks.history(symbol), plot_path)
-
-        # Provide URL path to frontend
+        plotter.trend(symbol, plot_path)
         plot_url = url_for('static', filename=f'{symbol}_trend.png')
 
     return jsonify({
         'stock_symbol': symbol,
-        'sentiment'   : reddit_res,
-        'stock_data'  : stock_res,
-        'plot_url'    : plot_url
+        'sentiment': sentiment_res,
+        'stock_data': stock_res,
+        'plot_url': plot_url
     })
 
 if __name__ == '__main__':
