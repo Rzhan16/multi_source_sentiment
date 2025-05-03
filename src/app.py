@@ -27,17 +27,16 @@ def home():
 def analyze():
     try:
         symbol = request.form.get('stock_symbol', '').upper()
-
-        # 1) Get all-in-one sentiment + stock info
-        unified  = get_unified_sentiment(symbol)
+        unified = get_unified_sentiment(symbol)
         plot_url = None
 
-        # 2) If we have a time series, generate & save the chart
         if unified.get("success") and not unified["daily_sentiment"].empty:
             static_dir = Path(__file__).resolve().parent.parent / 'static'
             static_dir.mkdir(exist_ok=True)
 
             plot_path = static_dir / f"{symbol}_trend.png"
+
+            # ─── Use the new method name ───
             fig = plotter.plot_sentiment_trend(
                 unified["daily_sentiment"],
                 unified["stock_history"],
@@ -47,29 +46,13 @@ def analyze():
 
             plot_url = url_for('static', filename=f"{symbol}_trend.png")
 
-        # 3) Return JSON for frontend
         return jsonify({
-            "stock_symbol": symbol,
-            "sentiment": {
-                "average_sentiment": unified["average_sentiment"],
-                "trend"            : unified["trend"],
-                "sources"          : unified["sources"],
-                "post_count"       : unified["post_count"]
-            },
-            "stock_data": {
-                "success": True,
-                "data": {
-                    "current_price": unified["current_price"],
-                    "currency"     : unified["currency"]
-                }
-            },
+            # ... (rest of your JSON response) ...
             "plot_url": plot_url
         })
 
     except Exception as e:
-        # catch ANY error and return as JSON
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True)
