@@ -1,34 +1,63 @@
-<script>
-    document.getElementById('f').addEventListener('submit', async e => {
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Stock Sentiment</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <h1>Reddit Stock Sentiment Analyzer</h1>
+
+  <form id="f">
+    <input id="sym" placeholder="AAPL" required>
+    <button>Analyze</button>
+  </form>
+
+  <div id="out"></div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('f');
+    form.addEventListener('submit', async e => {
       e.preventDefault();
       const sym = document.getElementById('sym').value.toUpperCase();
       const box = document.getElementById('out');
       box.innerHTML = '<p class="loading">Loading…</p>';
-    
-      const res = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `stock_symbol=${sym}`
-      });
-    
-      const data = await res.json();
-    
-      if (data.error || !data.sentiment.success) {
-        box.innerHTML = `<p class="error">${data.error || data.sentiment.error}</p>`;
-        return;
+
+      try {
+        const res = await fetch('/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `stock_symbol=${sym}`
+        });
+        const data = await res.json();
+
+        // Handle server-side or analyzer errors
+        if (data.error || !data.sentiment.success) {
+          box.innerHTML = `<p class="error">${data.error||data.sentiment.error}</p>`;
+          return;
+        }
+
+        // Build list of per-source scores
+        const listItems = Object.entries(data.sentiment.sources)
+          .map(([src, val]) => `<li>${src}: ${(val*100).toFixed(1)}%</li>`)
+          .join('');
+
+        box.innerHTML = `
+          <h2>${sym}</h2>
+          <div class="sentiment-summary">
+            <p><strong>Average Sentiment:</strong> ${(data.sentiment.average_sentiment*100).toFixed(1)}%</p>
+            <ul>${listItems}</ul>
+            <p><strong>Trend:</strong> ${data.sentiment.trend}</p>
+          </div>
+          <p><strong>Price:</strong> ${data.stock_data.data.currency}${data.stock_data.data.current_price}</p>
+          ${data.plot_url ? `<img src="${data.plot_url}" width="600" alt="Chart">` : '<p>No chart available</p>'}
+        `;
+      } catch(err) {
+        box.innerHTML = `<p class="error">Error: ${err.message}</p>`;
       }
-    
-      const sentimentList = Object.entries(data.sentiment.sources || {})
-        .map(([source, score]) => `<li>${source}: ${(score * 100).toFixed(1)}%</li>`)
-        .join('');
-    
-      box.innerHTML = `
-        <h2>${sym}</h2>
-        <p><strong>Average Sentiment:</strong> ${(data.sentiment.average_sentiment * 100).toFixed(1)}%</p>
-        <ul>${sentimentList}</ul>
-        <p><strong>Price:</strong> ${data.stock_data.data.currency}${data.stock_data.data.current_price}</p>
-        ${data.plot_url ? `<img src="${data.plot_url}" width="600">` : '<p>No chart available</p>'}
-      `;
     });
-    </script>
-    
+  });
+  </script>
+</body>
+</html>
