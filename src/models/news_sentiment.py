@@ -8,8 +8,9 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 
 # ensure VADER lexicon is available
-nltk.download('vader_lexicon', quiet=True)
+nltk.download("vader_lexicon", quiet=True)
 load_dotenv()
+
 
 class NewsSentimentAnalyzer:
     def __init__(self):
@@ -28,7 +29,7 @@ class NewsSentimentAnalyzer:
                 "apiKey": self.api_key,
                 "pageSize": limit,
                 "language": "en",
-                "sortBy": "relevancy"
+                "sortBy": "relevancy",
             }
             resp = requests.get(self.base_url, params=params).json()
             articles = resp.get("articles", [])
@@ -38,12 +39,12 @@ class NewsSentimentAnalyzer:
             # build a time series if desired
             times = []
             scores = []
+            # 🔄 full patched block
             for art in articles:
-                text = art.get("title", "") + " " + art.get("description", "")
+                text = (art.get("title") or "") + " " + (art.get("description") or "")
                 score = self.sia.polarity_scores(text)["compound"]
                 scores.append(score)
-                ts = pd.to_datetime(art.get("publishedAt", None))
-                times.append(ts)
+                times.append(pd.to_datetime(art.get("publishedAt")))
 
             df = pd.DataFrame({"sentiment": scores}, index=pd.to_datetime(times))
             daily = df["sentiment"].resample("D").mean()
@@ -52,7 +53,7 @@ class NewsSentimentAnalyzer:
                 "success": True,
                 "average_sentiment": float(df["sentiment"].mean()),
                 "post_count": len(df),
-                "daily_sentiment": daily
+                "daily_sentiment": daily,
             }
 
         except Exception as e:
