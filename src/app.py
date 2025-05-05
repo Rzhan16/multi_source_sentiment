@@ -1,23 +1,23 @@
 import os
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from pathlib import Path
 from whitenoise import WhiteNoise
 
 load_dotenv()
 
-from models.unified_sentiment import get_unified_sentiment
-from visualization.sentiment_plotter import SentimentPlotter
+from models.unified_sentiment        import get_unified_sentiment
+from visualization.plotly_plotter    import PlotlyPlotter
 
 app = Flask(
     __name__,
     static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
     static_url_path="/static",
 )
-# Let Gunicorn serve static files directly
-app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(os.path.dirname(__file__), "..", "static"))
+app.wsgi_app = WhiteNoise(app.wsgi_app,
+                          root=os.path.join(os.path.dirname(__file__), "..", "static"))
 
-plotter = SentimentPlotter()
+plotly = PlotlyPlotter()
 
 @app.route("/")
 def home():
@@ -27,51 +27,47 @@ def home():
 def analyze():
     try:
         symbol = request.form.get("stock_symbol", "").upper()
-        unified = get_unified_sentiment(symbol)
-        plot_url = None
+        # Get all our time series, counts, CI, price, fundamentals…
+        data = get_unified_sentiment(symbol)
 
-        daily   = unified["daily_sentiment"]
-        history = unified["stock_history"]
-
-        if unified.get("success") and hasattr(daily, "empty") and not daily.empty:
-            static_dir = Path(__file__).resolve().parent.parent / "static"
-            static_dir.mkdir(exist_ok=True)
-
-            plot_path = static_dir / f"{symbol}_trend.png"
-            fig = plotter.plot_sentiment_trend(
-                unified["daily_sentiment"],
-                unified["stock_history"],
-                title=f"{symbol} Sentiment vs Price",
-                daily_counts = unified["daily_counts"],
-                rolling_mean = unified["rolling_mean"],
-                ci_lower     = unified["ci_lower"],
-                ci_upper     = unified["ci_upper"],
-            )
-            plotter.save_plot(fig, plot_path)
-            plot_url = url_for("static", filename=f"{symbol}_trend.png")
+        # Build a Plotly Figure
+        fig = plotly.build_chart(
+            daily            = data["daily_sentiment"],
+            rolling_mean     = data["rolling_mean"],
+            ci_lower         = data["ci_lower"],
+            ci_upper         = data["ci_upper"],
+            volume           = data["daily_counts"],
+            price_df         = data["stock_history"],
+            earnings_dates   = data["fundamentals"]["earnings_dates"],
+            symbol           = symbol
+        )
+        chart_json = fig.to_json()
 
         return jsonify({
             "stock_symbol": symbol,
             "sentiment": {
-                "success"          : unified["success"],
-                "average_sentiment": unified["average_sentiment"],
-                "trend"            : unified["trend"],
-                "sources"          : unified["sources"],
-                "post_count"       : unified["post_count"],
+                "success"          : data["success"],
+                "average_sentiment": data["average_sentiment"],
+                "trend"            : data["trend"],
+                "sources"          : data["sources"],
+                "post_count"       : data["post_count"],
+                # optionally return correlation if you compute it
+                "corr"             : data.get("corr", None)
             },
             "stock_data": {
                 "success": True,
                 "data": {
-                    "current_price": unified["current_price"],
-                    "currency"     : unified["currency"],
+                    "current_price": data["current_price"],
+                    "currency"     : data["currency"],
                 },
             },
-            "plot_url": plot_url,
+            "fundamentals": data["fundamentals"],
+            "chart_json": chart_json
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # For development; in production run via gunicorn
+    # for local dev
     app.run(debug=True)
