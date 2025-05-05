@@ -7,16 +7,18 @@ from whitenoise import WhiteNoise
 
 load_dotenv()
 
-from models.unified_sentiment        import get_unified_sentiment
-from visualization.plotly_plotter    import PlotlyPlotter
+from models.unified_sentiment     import get_unified_sentiment
+from visualization.plotly_plotter import PlotlyPlotter
 
 app = Flask(
     __name__,
     static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
     static_url_path="/static",
 )
-app.wsgi_app = WhiteNoise(app.wsgi_app,
-                          root=os.path.join(os.path.dirname(__file__), "..", "static"))
+app.wsgi_app = WhiteNoise(
+    app.wsgi_app,
+    root=os.path.join(os.path.dirname(__file__), "..", "static")
+)
 
 plotly = PlotlyPlotter()
 
@@ -27,29 +29,30 @@ def home():
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
+        # ── Read inputs ──
         sym = request.form.get("stock_symbol", "").upper()
         window = int(request.form.get("window", 5))
         include_twitter = request.form.get("twitter", "false") == "true"
 
-        # 1) Get everything from unified_sentiment (you'll need to adjust its signature)
+        # ── Get unified sentiment & stock data ──
         unified = get_unified_sentiment(sym, window, include_twitter)
 
-        # 2) Fundamentals
+        # ── Fundamentals ──
         fundamentals = {
-            "pe": unified["current_price"] and unified.get("pe"),    # or unified['pe']
+            "pe": unified.get("pe"),
             "eps": unified.get("eps")
         }
 
-        # 3) Compute next‐day returns & correlation
+        # ── Compute correlation ──
         hist = unified["stock_history"]
         returns = hist["Close"].pct_change().shift(-1)
-        daily   = unified["daily_sentiment"]
-        corr    = daily.corr(returns)
+        daily = unified["daily_sentiment"]
+        corr = float(daily.corr(returns) or 0)
 
-        # 4) Build a Plotly figure
+        # ── Build Plotly figure ──
         fig = go.Figure()
 
-        # -- volume bars on y1 --
+        # volume bars
         fig.add_trace(go.Bar(
             x=unified["daily_counts"].index,
             y=unified["daily_counts"].values,
@@ -58,7 +61,7 @@ def analyze():
             yaxis="y1"
         ))
 
-        # -- raw daily sentiment --
+        # raw daily sentiment
         fig.add_trace(go.Scatter(
             x=daily.index, y=daily.values,
             mode="lines+markers",
@@ -67,7 +70,7 @@ def analyze():
             yaxis="y1"
         ))
 
-        # -- smoothed rolling mean --
+        # smoothed rolling mean
         fig.add_trace(go.Scatter(
             x=unified["rolling_mean"].index,
             y=unified["rolling_mean"].values,
@@ -75,7 +78,7 @@ def analyze():
             yaxis="y1"
         ))
 
-        # -- CI ribbon --
+        # CI ribbon
         fig.add_trace(go.Scatter(
             x=unified["ci_upper"].index,
             y=unified["ci_upper"].values,
@@ -93,14 +96,14 @@ def analyze():
             yaxis="y1"
         ))
 
-        # -- stock price on y2 --
+        # stock price
         fig.add_trace(go.Scatter(
             x=hist.index, y=hist["Close"],
             name="Stock Price",
             yaxis="y2"
         ))
 
-        # 5) Layout with two y-axes
+        # layout
         fig.update_layout(
             xaxis=dict(domain=[0, 1]),
             yaxis=dict(title="Sentiment Score"),
@@ -120,7 +123,7 @@ def analyze():
             "sentiment": {
                 "average_sentiment": unified["average_sentiment"],
                 "trend": unified["trend"],
-                "corr": corr or 0
+                "corr": corr
             },
             "chart_json": chart_json
         })
@@ -129,5 +132,5 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # for local dev
+    # For development only; in prod use Gunicorn
     app.run(debug=True)
