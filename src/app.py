@@ -1,4 +1,5 @@
 import os
+import plotly.graph_objs as go
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from pathlib import Path
@@ -26,42 +27,101 @@ def home():
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
-        symbol = request.form.get("stock_symbol", "").upper()
-        # Get all our time series, counts, CI, price, fundamentals…
-        data = get_unified_sentiment(symbol)
+        sym = request.form.get("stock_symbol", "").upper()
+        window = int(request.form.get("window", 5))
+        include_twitter = request.form.get("twitter", "false") == "true"
 
-        # Build a Plotly Figure
-        fig = plotly.build_chart(
-            daily            = data["daily_sentiment"],
-            rolling_mean     = data["rolling_mean"],
-            ci_lower         = data["ci_lower"],
-            ci_upper         = data["ci_upper"],
-            volume           = data["daily_counts"],
-            price_df         = data["stock_history"],
-            earnings_dates   = data["fundamentals"]["earnings_dates"],
-            symbol           = symbol
+        # 1) Get everything from unified_sentiment (you'll need to adjust its signature)
+        unified = get_unified_sentiment(sym, window, include_twitter)
+
+        # 2) Fundamentals
+        fundamentals = {
+            "pe": unified["current_price"] and unified.get("pe"),    # or unified['pe']
+            "eps": unified.get("eps")
+        }
+
+        # 3) Compute next‐day returns & correlation
+        hist = unified["stock_history"]
+        returns = hist["Close"].pct_change().shift(-1)
+        daily   = unified["daily_sentiment"]
+        corr    = daily.corr(returns)
+
+        # 4) Build a Plotly figure
+        fig = go.Figure()
+
+        # -- volume bars on y1 --
+        fig.add_trace(go.Bar(
+            x=unified["daily_counts"].index,
+            y=unified["daily_counts"].values,
+            marker_opacity=0.2,
+            name="Post Count",
+            yaxis="y1"
+        ))
+
+        # -- raw daily sentiment --
+        fig.add_trace(go.Scatter(
+            x=daily.index, y=daily.values,
+            mode="lines+markers",
+            line=dict(dash="dot"),
+            name="Daily Sentiment",
+            yaxis="y1"
+        ))
+
+        # -- smoothed rolling mean --
+        fig.add_trace(go.Scatter(
+            x=unified["rolling_mean"].index,
+            y=unified["rolling_mean"].values,
+            name=f"{window}-day MA",
+            yaxis="y1"
+        ))
+
+        # -- CI ribbon --
+        fig.add_trace(go.Scatter(
+            x=unified["ci_upper"].index,
+            y=unified["ci_upper"].values,
+            fill=None, mode="lines",
+            line_color="lightgrey",
+            showlegend=False,
+            yaxis="y1"
+        ))
+        fig.add_trace(go.Scatter(
+            x=unified["ci_lower"].index,
+            y=unified["ci_lower"].values,
+            fill="tonexty", mode="lines",
+            line_color="lightgrey",
+            name="±1σ CI",
+            yaxis="y1"
+        ))
+
+        # -- stock price on y2 --
+        fig.add_trace(go.Scatter(
+            x=hist.index, y=hist["Close"],
+            name="Stock Price",
+            yaxis="y2"
+        ))
+
+        # 5) Layout with two y-axes
+        fig.update_layout(
+            xaxis=dict(domain=[0, 1]),
+            yaxis=dict(title="Sentiment Score"),
+            yaxis2=dict(
+                title="Stock Price",
+                overlaying="y",
+                side="right"
+            ),
+            legend=dict(orientation="h", x=0, y=1.1),
+            margin=dict(t=50, b=50)
         )
+
         chart_json = fig.to_json()
 
         return jsonify({
-            "stock_symbol": symbol,
+            "fundamentals": fundamentals,
             "sentiment": {
-                "success"          : data["success"],
-                "average_sentiment": data["average_sentiment"],
-                "trend"            : data["trend"],
-                "sources"          : data["sources"],
-                "post_count"       : data["post_count"],
-                # optionally return correlation if you compute it
-                "corr"             : data.get("corr", None)
+                "average_sentiment": unified["average_sentiment"],
+                "trend": unified["trend"],
+                "corr": corr or 0
             },
-            "stock_data": {
-                "success": True,
-                "data": {
-                    "current_price": data["current_price"],
-                    "currency"     : data["currency"],
-                },
-            },
-            "fundamentals": data["fundamentals"],
             "chart_json": chart_json
         })
 
