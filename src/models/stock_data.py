@@ -1,6 +1,5 @@
-# src/models/stock_data.py
-
-import yfinance as yf, time
+import yfinance as yf
+import time
 from requests.exceptions import HTTPError
 
 class StockDataFetcher:
@@ -8,7 +7,7 @@ class StockDataFetcher:
         for i in range(retries):
             try:
                 ticker = yf.Ticker(sym)
-                info = ticker.info
+                info   = ticker.info
 
                 current_price = info.get('currentPrice')
                 if current_price is None:
@@ -35,3 +34,14 @@ class StockDataFetcher:
                     time.sleep(delay)
                     continue
                 return {'success': False, 'error': str(e)}
+
+def history(self, sym: str, days: int = 30):
+        """
+        Fetch historical OHLC data for the past `days` days.
+        Returns a pandas.DataFrame with a tz‐naive DateTimeIndex.
+        """
+        df = yf.Ticker(sym).history(period=f"{days}d")
+        # drop any timezone info so it can align with your daily_sent index
+        if hasattr(df.index, 'tz') and df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+        return df
