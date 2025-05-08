@@ -6,3 +6,12 @@ newsapi-python
 gunicorn==20.1.0
 whitenoise==6.5.0
 plotly==5.15.0
+fastapi
+uvicorn[standard]
+redis
+celery
+fastapi
+uvicorn[standard]
+redis
+celery
+python-dotenv
