@@ -53,12 +53,15 @@ services:
   - type: redis
     name: sentiment-redis
     plan: free
-    ipAllowList: []  # required by Render to define network visibility
+    ipAllowList: []
 
   # ── React frontend ──
   - type: web
     name: sentiment-dashboard
     runtime: static
     branch: master
-    buildCommand: npm install && npm --prefix frontend run build
+    # ⚠️ build entirely inside frontend/ so package.json is found
+    buildCommand: |
+      npm --prefix frontend install
+      npm --prefix frontend run build
     staticPublishPath: frontend/dist
