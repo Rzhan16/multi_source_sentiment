@@ -1,3 +1,5 @@
+# render.yaml (root of your repo)
+
 services:
   # ── FastAPI API ──
   - type: web
@@ -13,18 +15,12 @@ services:
           type: redis
           name: sentiment-redis
           property: connectionString
-      - key: REDDIT_CLIENT_ID
-        sync: false
-      - key: REDDIT_CLIENT_SECRET
-        sync: false
-      - key: REDDIT_USER_AGENT
-        sync: false
       - key: TWITTER_BEARER_TOKEN
         sync: false
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Celery background worker ──
+  # ── Celery worker ──
   - type: worker
     name: celery-worker
     runtime: python
@@ -38,30 +34,32 @@ services:
           type: redis
           name: sentiment-redis
           property: connectionString
-      - key: REDDIT_CLIENT_ID
-        sync: false
-      - key: REDDIT_CLIENT_SECRET
-        sync: false
-      - key: REDDIT_USER_AGENT
-        sync: false
       - key: TWITTER_BEARER_TOKEN
         sync: false
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Redis (Key-Value store) ──
+  # ── Redis KV store ──
   - type: redis
     name: sentiment-redis
     plan: free
     ipAllowList: []
 
-  # ── React frontend ──
+  # ── React static site ──
   - type: web
     name: sentiment-dashboard
     runtime: static
     branch: master
-    # ⚠️ build entirely inside frontend/ so package.json is found
+    # 1) Build with the VITE_WS_URL env var present
     buildCommand: |
-      npm --prefix frontend install
+      # inject the API URL so import.meta.env.VITE_WS_URL is defined
+      echo "VITE_WS_URL=$SERVICE_URL" >> frontend/.env
+      npm install
       npm --prefix frontend run build
     staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_WS_URL
+        fromService:
+          type: web
+          name: sentiment-api
+          property: serviceUrl
