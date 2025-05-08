@@ -1,0 +1,12 @@
+{
+  "name": "stock-sentiment-analysis",
+  "version": "1.0.0",
+  "description": "Stock sentiment analysis application",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

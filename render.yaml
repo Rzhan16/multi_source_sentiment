@@ -58,11 +58,13 @@ services:
           name: sentiment-api
           property: hostport
 
-    # 2) build: inject VITE_WS_URL then run your normal build steps
+    # 2) build: inject .env then run installs/build from frontend/
     buildCommand: |
-      # write frontend/.env so VITE_WS_URL is defined for Vite
+      # write VITE_WS_URL into frontend/.env so Vite picks it up
       echo "VITE_WS_URL=http://$SENTIMENT_API_HOSTPORT" > frontend/.env
-      npm install
+
+      # install & build in the frontend folder
+      npm --prefix frontend install
       npm --prefix frontend run build
 
     staticPublishPath: frontend/dist
