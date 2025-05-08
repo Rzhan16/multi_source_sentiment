@@ -1,3 +1,4 @@
+# render.yaml (at the root of your repo)
 services:
   # ── FastAPI API ──
   - type: web
@@ -17,12 +18,6 @@ services:
         sync: false
       - key: NEWS_API_KEY
         sync: false
-      - key: REDDIT_CLIENT_ID
-        sync: false
-      - key: REDDIT_CLIENT_SECRET
-        sync: false
-      - key: REDDIT_USER_AGENT
-        value: sentiment-app               # or sync:false if you keep it secret
 
   # ── Celery background worker ──
   - type: worker
@@ -42,12 +37,6 @@ services:
         sync: false
       - key: NEWS_API_KEY
         sync: false
-      - key: REDDIT_CLIENT_ID
-        sync: false
-      - key: REDDIT_CLIENT_SECRET
-        sync: false
-      - key: REDDIT_USER_AGENT
-        value: sentiment-app
 
   # ── Redis KV store ──
   - type: redis
@@ -61,6 +50,7 @@ services:
     runtime: static
     branch: master
 
+    # 1) grab the API host:port into an env var
     envVars:
       - key: SENTIMENT_API_HOSTPORT
         fromService:
@@ -68,11 +58,13 @@ services:
           name: sentiment-api
           property: hostport
 
+    # 2) build: inject .env then run installs/build from frontend/
     buildCommand: |
-      # ① inject websocket base URL for Vite
+      # write VITE_WS_URL into frontend/.env so Vite picks it up
       echo "VITE_WS_URL=http://$SENTIMENT_API_HOSTPORT" > frontend/.env
-      # ② install+build inside /frontend
+
+      # install & build in the frontend folder
       npm --prefix frontend install
-      npm --prefix frontend run build          # ← fixed
+      npm --prefix frontend run build
 
     staticPublishPath: frontend/dist
