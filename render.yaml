@@ -1,30 +1,31 @@
 # render.yaml
-
 services:
   # ── FastAPI web service ──
   - type: web
     name: sentiment-api
-    branch: master
     runtime: python
     plan: free
+    branch: master
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 8000
     envVars:
       - key: REDIS_URL
         fromService:
+          # alias for Key Value (Redis) instance
           type: redis
           name: sentiment-redis
+          property: connectionString
       - key: TWITTER_BEARER_TOKEN
         sync: false
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Celery background worker ──
+  # ── Celery worker ──
   - type: worker
     name: celery-worker
-    branch: master
     runtime: python
     plan: free
+    branch: master
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A backend.tasks.celery worker --loglevel=info
     envVars:
@@ -32,21 +33,23 @@ services:
         fromService:
           type: redis
           name: sentiment-redis
+          property: connectionString
       - key: TWITTER_BEARER_TOKEN
         sync: false
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Redis service ──
-  - type: redis
+  # ── Key Value (Redis) ──
+  - type: keyvalue     # or 'redis' — they're aliases
     name: sentiment-redis
     plan: free
+    ipAllowList: []    # required for Key Value; empty = internal-only access :contentReference[oaicite:0]{index=0}
 
-  # ── React static site ──
+  # ── React dashboard (static) ──
   - type: web
     name: sentiment-dashboard
-    branch: master
-    runtime: static
+    runtime: static     # correct way to declare a static site :contentReference[oaicite:1]{index=1}
     plan: free
+    branch: master
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
