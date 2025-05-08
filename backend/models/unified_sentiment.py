@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from models.reddit_sentiment   import RedditSentimentAnalyzer
-from models.twitter_sentiment  import TwitterSentimentAnalyzer
-from models.news_sentiment     import NewsSentimentAnalyzer
-from models.stock_data         import StockDataFetcher
-from models.fundamentals       import FundamentalsFetcher
+from .reddit_sentiment   import RedditSentimentAnalyzer
+from .twitter_sentiment  import TwitterSentimentAnalyzer
+from .news_sentiment     import NewsSentimentAnalyzer
+from .stock_data         import StockDataFetcher
+from .fundamentals       import FundamentalsFetcher
 
 # one‑time objects
 reddit_analyzer  = RedditSentimentAnalyzer()

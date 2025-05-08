@@ -35,10 +35,10 @@ class StockDataFetcher:
                     continue
                 return {'success': False, 'error': str(e)}
 
-def history(self, sym: str, days: int = 30):
+    def history(self, sym: str, days: int = 30):
         """
         Fetch historical OHLC data for the past `days` days.
-        Returns a pandas.DataFrame with a tz‐naive DateTimeIndex.
+        Returns a pandas.DataFrame with a tz-naive DateTimeIndex.
         """
         df = yf.Ticker(sym).history(period=f"{days}d")
         # drop any timezone info so it can align with your daily_sent index
