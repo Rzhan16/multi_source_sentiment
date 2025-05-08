@@ -1,0 +1,39 @@
+services:
+  # ── FastAPI web service ──
+  - type: web
+    name: sentiment-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sentiment-redis
+      - key: TWITTER_BEARER_TOKEN    # mark these “Sync: false” in the UI
+      - key: NEWS_API_KEY
+
+  # ── Celery worker ──
+  - type: worker
+    name: celery-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A backend.tasks.celery worker --loglevel=info
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sentiment-redis
+      - key: TWITTER_BEARER_TOKEN
+      - key: NEWS_API_KEY
+
+  # ── React static site ──
+  - type: static
+    name: sentiment-dashboard
+    env: static
+    buildCommand: npm install && npm --prefix frontend run build
+    staticPublishPath: frontend/dist
+
+databases:
+  - name: sentiment-redis
+    type: redis
