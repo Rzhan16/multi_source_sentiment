@@ -1,5 +1,4 @@
-# render.yaml (root of your repo)
-
+# render.yaml (at the root of your repo)
 services:
   # ── FastAPI API ──
   - type: web
@@ -20,7 +19,7 @@ services:
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Celery worker ──
+  # ── Celery background worker ──
   - type: worker
     name: celery-worker
     runtime: python
@@ -50,16 +49,20 @@ services:
     name: sentiment-dashboard
     runtime: static
     branch: master
-    # 1) Build with the VITE_WS_URL env var present
-    buildCommand: |
-      # inject the API URL so import.meta.env.VITE_WS_URL is defined
-      echo "VITE_WS_URL=$SERVICE_URL" >> frontend/.env
-      npm install
-      npm --prefix frontend run build
-    staticPublishPath: frontend/dist
+
+    # 1) grab the API host:port into an env var
     envVars:
-      - key: VITE_WS_URL
+      - key: SENTIMENT_API_HOSTPORT
         fromService:
           type: web
           name: sentiment-api
-          property: serviceUrl
+          property: hostport
+
+    # 2) build: inject VITE_WS_URL then run your normal build steps
+    buildCommand: |
+      # write frontend/.env so VITE_WS_URL is defined for Vite
+      echo "VITE_WS_URL=http://$SENTIMENT_API_HOSTPORT" > frontend/.env
+      npm install
+      npm --prefix frontend run build
+
+    staticPublishPath: frontend/dist
