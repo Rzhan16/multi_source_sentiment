@@ -1,10 +1,12 @@
 # render.yaml
+
 services:
   # ── FastAPI web service ──
   - type: web
     name: sentiment-api
     branch: master
     runtime: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 8000
     envVars:
@@ -22,6 +24,7 @@ services:
     name: celery-worker
     branch: master
     runtime: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A backend.tasks.celery worker --loglevel=info
     envVars:
@@ -34,14 +37,16 @@ services:
       - key: NEWS_API_KEY
         sync: false
 
+  # ── Redis service ──
+  - type: redis
+    name: sentiment-redis
+    plan: free
+
   # ── React static site ──
   - type: web
     name: sentiment-dashboard
     branch: master
     runtime: static
+    plan: free
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
-
-databases:
-  - name: sentiment-redis
-    type: redis
