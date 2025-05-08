@@ -4,15 +4,21 @@ services:
     name: sentiment-api
     runtime: python
     branch: master
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 8000
-    plan: free
     envVars:
       - key: REDIS_URL
         fromService:
           type: redis
           name: sentiment-redis
           property: connectionString
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USER_AGENT
+        sync: false
       - key: TWITTER_BEARER_TOKEN
         sync: false
       - key: NEWS_API_KEY
@@ -23,15 +29,21 @@ services:
     name: celery-worker
     runtime: python
     branch: master
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A backend.tasks.celery worker --loglevel=info
-    plan: free
     envVars:
       - key: REDIS_URL
         fromService:
           type: redis
           name: sentiment-redis
           property: connectionString
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USER_AGENT
+        sync: false
       - key: TWITTER_BEARER_TOKEN
         sync: false
       - key: NEWS_API_KEY
@@ -41,7 +53,7 @@ services:
   - type: redis
     name: sentiment-redis
     plan: free
-    ipAllowList: []  # required by Render to define visibility
+    ipAllowList: []  # required by Render to define network visibility
 
   # ── React frontend ──
   - type: web
@@ -50,4 +62,3 @@ services:
     branch: master
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
-    # ⛔ do NOT include `plan: free` here — static sites are always free
