@@ -1,12 +1,16 @@
-import Dashboard from "./components/Dashboard";
+import { useState } from 'react';
+import './App.css';
+import Dashboard from './components/Dashboard';
 
-export default function App() {
+function App() {
   return (
-    <main>
-      <header style={{ textAlign: "center", margin: "2rem 0" }}>
-        <h1>Stock Sentiment Dashboard</h1>
+    <div className="App">
+      <header className="App-header">
+        <h1>Stock Sentiment Analyzer</h1>
       </header>
       <Dashboard />
-    </main>
+    </div>
   );
 }
+
+export default App;

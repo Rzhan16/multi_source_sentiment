@@ -1,50 +1,50 @@
-// frontend/src/hooks.ts
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect } from 'react';
 
-export interface Snapshot {
-  ts: string;
-  current_price: number;
-  currency: string;
-  daily_sentiment: Record<string, number>;
-  rolling_mean: Record<string, number>;
-  ci_lower: Record<string, number>;
-  ci_upper: Record<string, number>;
-  stock_history: Record<string, { Close: number }>;
-}
+// Adjust the API URL based on environment
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+const WS_URL = import.meta.env.VITE_WS_URL || window.location.origin.replace('http', 'ws');
 
-export function useSentimentStream(symbol: string) {
-  const [snap, setSnap] = useState<Snapshot | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+export const useSentimentData = (symbol: string, includeTwitter: boolean = true) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // if we clear the symbol, close any existing socket & reset
-    if (!symbol) {
-      wsRef.current?.close();
-      setSnap(null);
-      return;
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(`${API_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stock_symbol: symbol,
+            window: 5,
+            twitter: includeTwitter
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        setData({
+          ...result,
+          symbol
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (symbol) {
+      fetchData();
     }
-
-    // close previous socket before opening a new one
-    wsRef.current?.close();
-
-    // 1) pick up VITE_WS_URL at build time, else default to same host
-    const base = import.meta.env.VITE_WS_URL
-      ? // transform http:// → ws://, https:// → wss://
-        import.meta.env.VITE_WS_URL.replace(/^http/, "ws")
-      : window.location.origin.replace(/^http/, "ws");
-
-    const url = `${base}/ws/${symbol}`;
-    console.log("Connecting to WS:", url);
-
-    const ws = new WebSocket(url);
-    ws.onopen = () => console.log("WS open");
-    ws.onmessage = (e) => setSnap(JSON.parse(e.data));
-    ws.onerror = (err) => console.error("WS error", err);
-    ws.onclose = () => console.log("WS closed");
-
-    wsRef.current = ws;
-    return () => { ws.close(); };
-  }, [symbol]);
-
-  return snap;
-}
+  }, [symbol, includeTwitter]);
+  
+  return { data, loading, error };
+};
