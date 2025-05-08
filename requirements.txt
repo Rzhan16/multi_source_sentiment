@@ -15,3 +15,4 @@ uvicorn[standard]
 redis
 celery
 python-dotenv
+numpy
