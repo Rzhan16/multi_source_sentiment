@@ -1,17 +1,15 @@
-# render.yaml
 services:
-  # ── FastAPI web service ──
+  # ── FastAPI API ──
   - type: web
     name: sentiment-api
     runtime: python
-    plan: free
     branch: master
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    plan: free
     envVars:
       - key: REDIS_URL
         fromService:
-          # alias for Key Value (Redis) instance
           type: redis
           name: sentiment-redis
           property: connectionString
@@ -20,14 +18,14 @@ services:
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Celery worker ──
+  # ── Celery background worker ──
   - type: worker
     name: celery-worker
     runtime: python
-    plan: free
     branch: master
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A backend.tasks.celery worker --loglevel=info
+    plan: free
     envVars:
       - key: REDIS_URL
         fromService:
@@ -39,17 +37,17 @@ services:
       - key: NEWS_API_KEY
         sync: false
 
-  # ── Key Value (Redis) ──
-  - type: keyvalue     # or 'redis' — they're aliases
+  # ── Redis (Key-Value store) ──
+  - type: redis
     name: sentiment-redis
     plan: free
-    ipAllowList: []    # required for Key Value; empty = internal-only access :contentReference[oaicite:0]{index=0}
+    ipAllowList: []  # required by Render to define visibility
 
-  # ── React dashboard (static) ──
+  # ── React frontend ──
   - type: web
     name: sentiment-dashboard
-    runtime: static     # correct way to declare a static site :contentReference[oaicite:1]{index=1}
-    plan: free
+    runtime: static
     branch: master
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
+    # ⛔ do NOT include `plan: free` here — static sites are always free
