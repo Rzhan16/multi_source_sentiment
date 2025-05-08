@@ -16,3 +16,7 @@ redis
 celery
 python-dotenv
 numpy
+pandas
+scikit-learn
+yfinance
+praw
